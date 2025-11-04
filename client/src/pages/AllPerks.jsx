@@ -14,6 +14,7 @@ export default function AllPerks() {
 
  
   const [uniqueMerchants, setUniqueMerchants] = useState([])
+  const [allMerchants, setAllMerchants] = useState([])
 
   
   const [loading, setLoading] = useState(true)
@@ -31,21 +32,42 @@ export default function AllPerks() {
 */
 
   
+  // Track all unique merchants from the full perks list (not filtered)
   useEffect(() => {
-    // Extract all merchant names from perks array
-    const merchants = perks
-      .map(perk => perk.merchant) // Get merchant from each perk
-      .filter(merchant => merchant && merchant.trim()) // Remove empty/null values
-    
-    // Create array of unique merchants using Set
-    // Set automatically removes duplicates, then we convert back to array
-    const unique = [...new Set(merchants)]
-    
-    // Update state with unique merchants
-    setUniqueMerchants(unique)
-    
-    // This effect depends on [perks], so it re-runs whenever perks changes
-  }, [perks]) // Dependency: re-run when perks array changes
+    async function fetchAllMerchants() {
+      try {
+        const res = await api.get('/perks/all');
+        const merchants = res.data.perks
+          .map(perk => perk.merchant)
+          .filter(merchant => merchant && merchant.trim());
+        const unique = [...new Set(merchants)];
+        setAllMerchants(unique);
+      } catch (err) {
+        // fallback: do nothing
+      }
+    }
+    fetchAllMerchants();
+  }, []);
+
+  // This effect is still needed for other logic, but uniqueMerchants is now set from allMerchants
+  useEffect(() => {
+    setUniqueMerchants(allMerchants);
+  }, [allMerchants]);
+
+  // useEffect Hook #1: Initial Data Loading
+  useEffect(() => {
+    loadAllPerks()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Run once on mount
+
+  // useEffect Hook #2: Auto-search on Input Change
+  useEffect(() => {
+    // Debounce search/filter to avoid too many requests
+    const timeout = setTimeout(() => {
+      loadAllPerks()
+    }, 400)
+    return () => clearTimeout(timeout)
+  }, [searchQuery, merchantFilter])
 
   
   async function loadAllPerks() {
@@ -136,7 +158,8 @@ export default function AllPerks() {
                 type="text"
                 className="input"
                 placeholder="Enter perk name..."
-                
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
               />
               <p className="text-xs text-zinc-500 mt-1">
                 Auto-searches as you type, or press Enter / click Search
@@ -151,7 +174,8 @@ export default function AllPerks() {
               </label>
               <select
                 className="input"
-                
+                value={merchantFilter}
+                onChange={e => setMerchantFilter(e.target.value)}
               >
                 <option value="">All Merchants</option>
                 
